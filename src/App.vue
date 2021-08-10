@@ -3,11 +3,11 @@
     <header>Users list</header>
     <form v-if="adding || editing" @submit.prevent="submitForm">
       <div class="subheader">{{ adding ? 'New' : 'Update' }} user</div>
-      <input v-model="currentUser.name" placeholder="Name" />
+      <input v-model="currentUser.name" placeholder="Name" ref="focus" />
       <input v-model="currentUser.email" placeholder="Email" />
       <input v-model="currentUser.website" placeholder="Website" />
       <input v-model="currentUser.phone" placeholder="Phone" />
-      <button type="submit">
+      <button type="submit" :disabled="isInProcess">
         {{ adding ? 'Add' : 'Save' }}
       </button>
       <button @click="hideForm">Cancel</button>
@@ -23,6 +23,7 @@
     <div v-if="filteredUsers && filteredUsers.length">
       <table class="table">
         <thead>
+          <th>id</th>
           <th>Name</th>
           <th>Email</th>
           <th>Website</th>
@@ -30,13 +31,16 @@
           <th>Action</th>
         </thead>
         <tr v-for="(user, index) in filteredUsers" :key="index">
+          <td>{{ user.id }}</td>
           <td>{{ user.name }}</td>
           <td>{{ user.email }}</td>
           <td>{{ user.website }}</td>
           <td>{{ user.phone }}</td>
           <td>
             <button @click="showEditForm(index)">Edit</button>
-            <button @click="removeUser(index)">Remove</button>
+            <button @click="removeUser(user)" :disabled="isInDeletion">
+              Remove
+            </button>
           </td>
         </tr>
       </table>
@@ -52,6 +56,7 @@ import { IUser } from '@/interfaces';
 import api from '@/api';
 
 const emptyUser: IUser = {
+  id: 0,
   name: '',
   email: '',
   website: '',
@@ -71,6 +76,8 @@ export default Vue.extend({
       currentIndex: -1,
       filterString: '',
       errors: [''],
+      isInProcess: false,
+      isInDeletion: false,
     };
   },
   async mounted() {
@@ -94,7 +101,11 @@ export default Vue.extend({
   },
   methods: {
     async getUsers() {
-      this.users = await api.apiGetUsers();
+      try {
+        this.users = await api.getUsers();
+      } catch (error) {
+        console.error(error);
+      }
     },
     showAddForm() {
       this.adding = true;
@@ -105,7 +116,7 @@ export default Vue.extend({
     showEditForm(index: number) {
       this.adding = false;
       this.editing = true;
-      this.currentUser = this.filteredUsers[index];
+      this.currentUser = { ...this.filteredUsers[index] };
       this.errors = [];
       this.currentIndex = index;
     },
@@ -119,24 +130,48 @@ export default Vue.extend({
         this.errors.push('Email');
       }
     },
-    submitForm() {
+    async submitForm() {
       this.validateForm();
 
       if (this.errors.length === 0) {
-        if (this.adding) {
-          this.users.push(this.currentUser);
-        } else {
-          this.users[this.currentIndex] = this.currentUser;
+        this.isInProcess = true;
+
+        try {
+          if (this.adding) {
+            const response = await api.createUser(this.currentUser);
+
+            this.currentUser.id = response.id;
+            this.users.push(this.currentUser);
+          } else {
+            await api.updateUser(this.currentUser);
+            this.users[this.currentIndex] = this.currentUser;
+          }
+          this.hideForm();
+        } catch (error) {
+          console.error(error);
         }
-        this.hideForm();
+
+        this.isInProcess = false;
       }
     },
-    removeUser(index: number) {
+    async removeUser(user: IUser) {
       if (confirm('Are you sure?')) {
-        this.users.splice(index, 1);
-        if (this.editing && index === this.currentIndex) {
-          this.hideForm();
+        this.isInDeletion = true;
+
+        try {
+          await api.deleteUser(this.currentUser);
+
+          const index = this.users.indexOf(user);
+
+          this.users.splice(index, 1);
+          if (this.editing && index === this.currentIndex) {
+            this.hideForm();
+          }
+        } catch (error) {
+          console.error(error);
         }
+
+        this.isInDeletion = false;
       }
     },
     hideForm() {
@@ -184,6 +219,10 @@ header {
     text-align: left;
     padding: 10px;
     border: 1px solid black;
+    &:first-of-type {
+      width: 22px;
+      text-align: right;
+    }
     &:last-of-type {
       width: 140px;
       text-align: center;
@@ -191,6 +230,6 @@ header {
   }
 }
 .no-users {
-  margin-top: 30px;
+  margin: 30px;
 }
 </style>
