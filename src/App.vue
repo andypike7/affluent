@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <header>Users list</header>
-    <!-- In a real project, I'd like to use popup instead of an inline form. -->
+    <!-- In a real project, I would like to use popup instead of an inline form. -->
     <!-- So, logic is a bit witred but not extra dependencies are requred. -->
     <button v-if="state === State.IDLE" @click="showAddForm">Add user</button>
     <form v-else @submit.prevent="submitForm">
@@ -32,7 +32,7 @@
           <th>Email</th>
           <th>Website</th>
           <th>Phone</th>
-          <th>Action</th>
+          <th>Actions</th>
         </thead>
         <tr v-for="(user, index) in filteredUsers" :key="index">
           <td>{{ user.id }}</td>
