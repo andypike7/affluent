@@ -84,21 +84,17 @@ enum State {
 
 export default Vue.extend({
   name: 'App',
-  data: () => {
-    const users: IUser[] = [];
-
-    return {
-      users,
-      currentUser: emptyUser,
-      filterString: '',
-      errors: [] as string[],
-      isInProcess: false,
-      isInDeletion: false,
-      disabledActions: [] as number[],
-      state: State.IDLE,
-      State,
-    };
-  },
+  data: () => ({
+    users: [] as IUser[],
+    currentUser: emptyUser,
+    filterString: '',
+    errors: [] as string[],
+    isInProcess: false,
+    isInDeletion: false,
+    disabledActions: [] as number[],
+    state: State.IDLE,
+    State,
+  }),
   async mounted() {
     await this.getUsers();
   },
