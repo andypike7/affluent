@@ -1,10 +1,12 @@
 <template>
   <div id="app">
-    <header>The App</header>
+    <header>Users list</header>
     <form v-if="adding || editing" @submit.prevent="submitForm">
-      <div class="subheader">{{ adding ? 'New' : 'Update' }} item</div>
-      <input v-model="name" placeholder="Name" />
-      <input v-model="email" placeholder="Email" />
+      <div class="subheader">{{ adding ? 'New' : 'Update' }} user</div>
+      <input v-model="currentUser.name" placeholder="Name" />
+      <input v-model="currentUser.email" placeholder="Email" />
+      <input v-model="currentUser.website" placeholder="Website" />
+      <input v-model="currentUser.phone" placeholder="Phone" />
       <button type="submit">
         {{ adding ? 'Add' : 'Save' }}
       </button>
@@ -13,49 +15,57 @@
         {{ errorMessage }}
       </div>
     </form>
-    <button v-else @click="showAddForm">Add item</button>
+    <button v-else @click="showAddForm">Add user</button>
     <div class="filter">
       Filter:
       <input v-model="filterString" placeholder="Name or email..." />
     </div>
-    <div v-if="filteredItems.length">
+    <div v-if="filteredUsers && filteredUsers.length">
       <table class="table">
         <thead>
           <th>Name</th>
           <th>Email</th>
+          <th>Website</th>
+          <th>Phone</th>
           <th>Action</th>
         </thead>
-        <tr v-for="(item, index) in filteredItems" :key="index">
-          <td>{{ item.name }}</td>
-          <td>{{ item.email }}</td>
+        <tr v-for="(user, index) in filteredUsers" :key="index">
+          <td>{{ user.name }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.website }}</td>
+          <td>{{ user.phone }}</td>
           <td>
             <button @click="showEditForm(index)">Edit</button>
-            <button @click="removeItem(index)">Remove</button>
+            <button @click="removeUser(index)">Remove</button>
           </td>
         </tr>
       </table>
     </div>
-    <div v-else class="no-items">No items found</div>
+    <div v-else class="no-users">No users found</div>
+    <button @click="getUsers">Refresh</button>
   </div>
 </template>
 
 <script lang="ts">
 import Vue from 'vue';
+import { IUser } from '@/interfaces';
+import api from '@/api';
 
-interface IItem {
-  name: string;
-  email: string;
-}
+const emptyUser: IUser = {
+  name: '',
+  email: '',
+  website: '',
+  phone: '',
+};
 
 export default Vue.extend({
   name: 'App',
   data() {
-    const items: IItem[] = [];
+    const users: IUser[] = [];
 
     return {
-      items: items,
-      name: '',
-      email: '',
+      users,
+      currentUser: emptyUser,
       adding: false,
       editing: false,
       currentIndex: -1,
@@ -63,55 +73,49 @@ export default Vue.extend({
       errors: [''],
     };
   },
-  mounted() {
-    const defaultItems: IItem[] = [
-      { name: 'Andy', email: 'tech@sym.ru' },
-      { name: 'Julia', email: 'jpike@yandex.ru' },
-    ];
-
-    this.items = defaultItems;
+  async mounted() {
+    await this.getUsers();
   },
   computed: {
-    errorMessage() {
-      return `${this.$data.errors.join(' and ')} should not be empty.`;
+    errorMessage: function (): string {
+      return `${this.errors.join(' and ')} should not be empty.`;
     },
-    filteredItems() {
-      const str = this.$data.filterString.trim().toLowerCase();
+    filteredUsers: function (): IUser[] {
+      const str = this.filterString.trim().toLowerCase();
 
       return str === ''
-        ? this.$data.items
-        : this.$data.items.filter(
-            (item: IItem) =>
-              item.name.toLowerCase().includes(str) ||
-              item.email.toLowerCase().includes(str),
+        ? this.users
+        : this.users.filter(
+            (user: IUser) =>
+              user.name.toLowerCase().includes(str) ||
+              user.email.toLowerCase().includes(str),
           );
     },
   },
   methods: {
+    async getUsers() {
+      this.users = await api.apiGetUsers();
+    },
     showAddForm() {
       this.adding = true;
       this.editing = false;
-      this.name = '';
-      this.email = '';
+      this.currentUser = { ...emptyUser };
       this.errors = [];
     },
     showEditForm(index: number) {
-      const item = this.items[index];
-
       this.adding = false;
       this.editing = true;
-      this.name = item.name;
-      this.email = item.email;
+      this.currentUser = this.filteredUsers[index];
       this.errors = [];
       this.currentIndex = index;
     },
     validateForm() {
       this.errors = [];
 
-      if (this.name.trim() === '') {
+      if (this.currentUser.name.trim() === '') {
         this.errors.push('Name');
       }
-      if (this.email.trim() === '') {
+      if (this.currentUser.email.trim() === '') {
         this.errors.push('Email');
       }
     },
@@ -120,23 +124,16 @@ export default Vue.extend({
 
       if (this.errors.length === 0) {
         if (this.adding) {
-          this.items.push({
-            name: this.name,
-            email: this.email,
-          });
-          console.log(`Added (${this.items.length})`);
+          this.users.push(this.currentUser);
         } else {
-          const item = this.items[this.currentIndex];
-
-          item.name = this.name;
-          item.email = this.email;
+          this.users[this.currentIndex] = this.currentUser;
         }
         this.hideForm();
       }
     },
-    removeItem(index: number) {
+    removeUser(index: number) {
       if (confirm('Are you sure?')) {
-        this.items.splice(index, 1);
+        this.users.splice(index, 1);
         if (this.editing && index === this.currentIndex) {
           this.hideForm();
         }
@@ -177,11 +174,11 @@ header {
   margin-top: 10px;
 }
 .filter {
-  margin: 32px auto 12px;
+  margin: 32px auto 0;
 }
 .table {
-  margin: auto;
-  min-width: 500px;
+  margin: 32px auto;
+  min-width: 1000px;
   border-collapse: collapse;
   td {
     text-align: left;
@@ -193,7 +190,7 @@ header {
     }
   }
 }
-.no-items {
+.no-users {
   margin-top: 30px;
 }
 </style>
