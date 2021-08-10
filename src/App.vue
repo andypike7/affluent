@@ -10,7 +10,7 @@
         {{ adding ? 'Add' : 'Save' }}
       </button>
       <button @click="hideForm">Cancel</button>
-      <div v-if="errorMessage !== null" class="error">
+      <div v-if="errors.length" class="error">
         {{ errorMessage }}
       </div>
     </form>
@@ -47,16 +47,15 @@ export default Vue.extend({
   name: 'App',
   data() {
     const items: IItem[] = [];
-    const errorMessage: string | null = null;
 
     return {
       items: items,
       name: '',
       email: '',
-      errorMessage,
       adding: false,
       editing: false,
       currentIndex: -1,
+      errors: [],
     };
   },
   mounted() {
@@ -67,13 +66,18 @@ export default Vue.extend({
 
     this.items = defaultItems;
   },
+  computed: {
+    errorMessage() {
+      return `${this.errors.join(' and ')} should not be empty.`;
+    },
+  },
   methods: {
     showAddForm() {
-      this.name = '';
-      this.email = '';
       this.adding = true;
       this.editing = false;
-      this.errorMessage = null;
+      this.name = '';
+      this.email = '';
+      this.errors = [];
     },
     showEditForm(index: number) {
       const item = this.items[index];
@@ -82,27 +86,23 @@ export default Vue.extend({
       this.editing = true;
       this.name = item.name;
       this.email = item.email;
+      this.errors = [];
       this.currentIndex = index;
-      this.errorMessage = null;
     },
     validateForm() {
-      const errors = [];
+      this.errors = [];
 
       if (this.name.trim() === '') {
-        errors.push('Name');
+        this.errors.push('Name');
       }
       if (this.email.trim() === '') {
-        errors.push('Email');
+        this.errors.push('Email');
       }
-      return errors;
     },
     submitForm() {
-      const errors = this.validateForm();
+      this.validateForm();
 
-      if (errors.length) {
-        this.errorMessage = `${errors.join(' and ')} should not be empty.`;
-      } else {
-        this.errorMessage = null;
+      if (this.errors.length === 0) {
         if (this.adding) {
           this.items.push({
             name: this.name,
