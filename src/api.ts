@@ -4,10 +4,11 @@ import { API_URL } from '@/config';
 // I have realized just '/users' endpoints.
 // Others are the same but require more code.
 
-// If I had more time I'd like to change it change
-// this realization to Component <=> Vuex <=> API.
+// If I had more time I'd like to change this
+// realization to Components <=> Vuex <=> API.
 
-// And also I prefer axios package.
+// I prefer the axios package, but as we definitely know that it's
+// a testing project, I have tried not to use external dependencies.
 
 export default {
   handleError(response: Response): void {
