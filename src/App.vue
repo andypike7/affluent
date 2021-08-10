@@ -1,21 +1,25 @@
 <template>
   <div id="app">
     <header>Users list</header>
-    <form v-if="adding || editing" @submit.prevent="submitForm">
-      <div class="subheader">{{ adding ? 'New' : 'Update' }} user</div>
+    <!-- In a real project, I'd like to use popup instead of an inline form. -->
+    <!-- So, logic is a bit witred but not extra dependencies are requred. -->
+    <button v-if="state === State.IDLE" @click="showAddForm">Add user</button>
+    <form v-else @submit.prevent="submitForm">
+      <div class="subheader">
+        {{ state === State.ADDITION ? 'New' : 'Update' }} user
+      </div>
       <input v-model="currentUser.name" placeholder="Name" ref="focus" />
       <input v-model="currentUser.email" placeholder="Email" />
       <input v-model="currentUser.website" placeholder="Website" />
       <input v-model="currentUser.phone" placeholder="Phone" />
       <button type="submit" :disabled="isInProcess">
-        {{ adding ? 'Add' : 'Save' }}
+        {{ state === State.ADDITION ? 'Add' : 'Save' }}
       </button>
-      <button @click="hideForm">Cancel</button>
+      <button @click="state = State.IDLE">Cancel</button>
       <div v-if="errors.length" class="error">
         {{ errorMessage }}
       </div>
     </form>
-    <button v-else @click="showAddForm">Add user</button>
     <div class="filter">
       Filter:
       <input v-model="filterString" placeholder="Name or email..." />
@@ -37,8 +41,16 @@
           <td>{{ user.website }}</td>
           <td>{{ user.phone }}</td>
           <td>
-            <button @click="showEditForm(index)">Edit</button>
-            <button @click="removeUser(user)" :disabled="isInDeletion">
+            <button
+              @click="showEditForm(index)"
+              :disabled="disabledActions.includes(user.id)"
+            >
+              Edit
+            </button>
+            <button
+              @click="removeUser(user)"
+              :disabled="disabledActions.includes(user.id)"
+            >
               Remove
             </button>
           </td>
@@ -46,6 +58,7 @@
       </table>
     </div>
     <div v-else class="no-users">No users found</div>
+    <!-- I thought this action will reload really changed data, unfortunately not. -->
     <button @click="getUsers">Refresh</button>
   </div>
 </template>
@@ -63,21 +76,27 @@ const emptyUser: IUser = {
   phone: '',
 };
 
+enum State {
+  IDLE,
+  ADDITION,
+  EDITING,
+}
+
 export default Vue.extend({
   name: 'App',
-  data() {
+  data: () => {
     const users: IUser[] = [];
 
     return {
       users,
       currentUser: emptyUser,
-      adding: false,
-      editing: false,
-      currentIndex: -1,
       filterString: '',
-      errors: [''],
+      errors: [] as string[],
       isInProcess: false,
       isInDeletion: false,
+      disabledActions: [] as number[],
+      state: State.IDLE,
+      State,
     };
   },
   async mounted() {
@@ -88,6 +107,7 @@ export default Vue.extend({
       return `${this.errors.join(' and ')} should not be empty.`;
     },
     filteredUsers: function (): IUser[] {
+      // In a real project it's better to split string into words.
       const str = this.filterString.trim().toLowerCase();
 
       return str === ''
@@ -108,17 +128,14 @@ export default Vue.extend({
       }
     },
     showAddForm() {
-      this.adding = true;
-      this.editing = false;
+      this.state = State.ADDITION;
       this.currentUser = { ...emptyUser };
       this.errors = [];
     },
     showEditForm(index: number) {
-      this.adding = false;
-      this.editing = true;
+      this.state = State.EDITING;
       this.currentUser = { ...this.filteredUsers[index] };
       this.errors = [];
-      this.currentIndex = index;
     },
     validateForm() {
       this.errors = [];
@@ -137,16 +154,23 @@ export default Vue.extend({
         this.isInProcess = true;
 
         try {
-          if (this.adding) {
+          if (this.state === State.ADDITION) {
             const response = await api.createUser(this.currentUser);
 
             this.currentUser.id = response.id;
             this.users.push(this.currentUser);
           } else {
             await api.updateUser(this.currentUser);
-            this.users[this.currentIndex] = this.currentUser;
+
+            const index = this.users.findIndex(
+              (user) => user.id === this.currentUser.id,
+            );
+
+            if (index !== -1) {
+              this.users[index] = this.currentUser;
+            }
           }
-          this.hideForm();
+          this.state = State.IDLE;
         } catch (error) {
           console.error(error);
         }
@@ -155,17 +179,27 @@ export default Vue.extend({
       }
     },
     async removeUser(user: IUser) {
-      if (confirm('Are you sure?')) {
+      // I don't use `confirm` in real projects, this is a test project exception.
+      if (confirm('Are you sure?') && user.id !== undefined) {
+        this.disabledActions.push(user.id);
         this.isInDeletion = true;
 
         try {
-          await api.deleteUser(this.currentUser);
+          await api.deleteUser(user.id);
 
           const index = this.users.indexOf(user);
 
           this.users.splice(index, 1);
-          if (this.editing && index === this.currentIndex) {
-            this.hideForm();
+
+          const disabledIndex = this.disabledActions.indexOf(user.id);
+
+          if (disabledIndex > -1) {
+            this.disabledActions.splice(disabledIndex, 1);
+          }
+
+          // Not required, but more correct.
+          if (this.state === State.EDITING && user.id === this.currentUser.id) {
+            this.state = State.IDLE;
           }
         } catch (error) {
           console.error(error);
@@ -173,10 +207,6 @@ export default Vue.extend({
 
         this.isInDeletion = false;
       }
-    },
-    hideForm() {
-      this.adding = false;
-      this.editing = false;
     },
   },
 });
