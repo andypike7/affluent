@@ -1,7 +1,6 @@
 <template>
   <div id="app">
     <header>The App</header>
-    <button v-if="!adding && !editing" @click="showAddForm">Add item</button>
     <form v-if="adding || editing" @submit.prevent="submitForm">
       <div class="subheader">{{ adding ? 'New' : 'Update' }} item</div>
       <input v-model="name" placeholder="Name" />
@@ -14,14 +13,19 @@
         {{ errorMessage }}
       </div>
     </form>
-    <div v-if="items.length">
+    <button v-else @click="showAddForm">Add item</button>
+    <div class="filter">
+      Filter:
+      <input v-model="filterString" placeholder="Name or email..." />
+    </div>
+    <div v-if="filteredItems.length">
       <table class="table">
         <thead>
           <th>Name</th>
           <th>Email</th>
           <th>Action</th>
         </thead>
-        <tr v-for="(item, index) in items" :key="index">
+        <tr v-for="(item, index) in filteredItems" :key="index">
           <td>{{ item.name }}</td>
           <td>{{ item.email }}</td>
           <td>
@@ -55,7 +59,8 @@ export default Vue.extend({
       adding: false,
       editing: false,
       currentIndex: -1,
-      errors: [],
+      filterString: '',
+      errors: [''],
     };
   },
   mounted() {
@@ -68,7 +73,18 @@ export default Vue.extend({
   },
   computed: {
     errorMessage() {
-      return `${this.errors.join(' and ')} should not be empty.`;
+      return `${this.$data.errors.join(' and ')} should not be empty.`;
+    },
+    filteredItems() {
+      const str = this.$data.filterString.trim().toLowerCase();
+
+      return str === ''
+        ? this.$data.items
+        : this.$data.items.filter(
+            (item: IItem) =>
+              item.name.toLowerCase().includes(str) ||
+              item.email.toLowerCase().includes(str),
+          );
     },
   },
   methods: {
@@ -160,8 +176,11 @@ header {
   color: red;
   margin-top: 10px;
 }
+.filter {
+  margin: 32px auto 12px;
+}
 .table {
-  margin: 30px auto;
+  margin: auto;
   min-width: 500px;
   border-collapse: collapse;
   td {
