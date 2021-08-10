@@ -41,10 +41,16 @@
       "@vue/prettier",
       "@vue/prettier/@typescript-eslint"
     ],
+
     "parserOptions": {
       "ecmaVersion": 2020
     },
     "rules": {}
+  },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "endOfLine": "auto"
   },
   "browserslist": [
     "> 1%",
